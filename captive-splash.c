@@ -1,7 +1,9 @@
-#include "ets_sys.h"
-#include "gpio.h"
-#include "os_type.h"
-#include "osapi.h"
+#include "error.h"
+
+#include <ets_sys.h>
+#include <gpio.h>
+#include <os_type.h>
+#include <osapi.h>
 
 #include <stdint.h>
 
@@ -24,13 +26,16 @@ static void tick(void *arg)
 
 void ICACHE_FLASH_ATTR user_init()
 {
-	// init gpio subsytem
+	// init gpio subsytem & uart
 	gpio_init();
-
-	// configure UART TXD to be GPIO1, set as output
-	//PIN_FUNC_SELECT(PERIPHS_IO_MUX_U0TXD_U, FUNC_GPIO1);
-	////gpio_output_set(0, 0, (1 << pin), 0);
 	set_uart0_baud_rate(115200);
+
+	os_printf("sizeof(int)=%d\n", sizeof(int));
+	os_printf("sizeof(long)=%d\n", sizeof(long));
+	os_printf("sizeof(long long)=%d\n", sizeof(long long));
+
+	// configure wifi ap
+	error_fatal("fuck");
 
 	// setup timer (1000ms, repeating)
 	os_timer_setfn((ETSTimer*) &main_timer, (os_timer_func_t *)tick, NULL);
