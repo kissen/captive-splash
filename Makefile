@@ -1,6 +1,7 @@
 CC = xtensa-lx106-elf-gcc
 CFLAGS = -I. -mlongcalls
-LDLIBS = -nostdlib -Wl,--start-group -lmain -lnet80211 -lwpa -llwip -lpp -lphy -lc -Wl,--end-group -lgcc
+LDLIBS = -nostdlib -Wl,--start-group -lmain -lnet80211 -lwpa -llwip -lpp \
+	-lphy -lc -Wl,--end-group -lgcc
 LDFLAGS = -Teagle.app.v6.ld
 
 captive-splash-0x00000.bin: captive-splash
