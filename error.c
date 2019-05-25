@@ -5,16 +5,18 @@
 #include <os_type.h>
 #include <osapi.h>
 
-static void delay(uint32_t ms)
+static const char *err = NULL;
+
+void error(const char *msg)
 {
-	const uint32_t target_us = system_get_time() + ms * 1000;
-	while (system_get_time() < target_us);
+	if (!err) {
+		err = msg;
+	}
 }
 
-void error_fatal(const char *msg)
+void error_print(void)
 {
-	for(;;) {
-		os_printf("error: %s\n", msg);
-		delay(1000);
+	if (err) {
+		os_printf("error: %s\n", err);
 	}
 }

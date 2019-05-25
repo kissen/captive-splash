@@ -7,6 +7,12 @@
 
 
 /*
- * Repeat error message `msg' until the end of time.
+ * Set error to msg.
  */
-void error_fatal(const char *msg);
+void error(const char *msg);
+
+
+/*
+ * Print error, if there is one.
+ */
+void error_print(void);
