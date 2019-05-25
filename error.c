@@ -1,8 +1,5 @@
 #include "error.h"
 
-#include <ets_sys.h>
-#include <gpio.h>
-#include <os_type.h>
 #include <osapi.h>
 
 static const char *err = NULL;

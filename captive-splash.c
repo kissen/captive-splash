@@ -9,13 +9,6 @@
 
 #include <stdint.h>
 
-static const uint8_t SOFT_AP_MODE = 0x02;
-
-// ESP-12 modules have LED on GPIO2. Change to another GPIO
-// for other boards.
-static const int pin = 2;
-static volatile os_timer_t main_timer;
-
 static void tick(void *arg)
 {
 	error_print();
@@ -69,6 +62,7 @@ static void set_up_ap(void)
 {
 	// switch to ap mode
 
+	const uint8_t SOFT_AP_MODE = 0x02;
 	if (!wifi_set_opmode_current(SOFT_AP_MODE)) {
 		error("wifi_set_opmode_current");
 	}
@@ -129,6 +123,7 @@ void ICACHE_FLASH_ATTR user_init()
 	set_up_ap();
 
 	// setup timer (1000ms, repeating)
+	static volatile os_timer_t main_timer;
 	os_timer_setfn((ETSTimer*) &main_timer, (os_timer_func_t *)tick, NULL);
 	os_timer_arm((ETSTimer*) &main_timer, 1000, 1);
 }
