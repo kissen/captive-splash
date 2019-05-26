@@ -7,14 +7,16 @@
 #include <osapi.h>
 #include <user_interface.h>
 
+#include <espconn.h>
+
 #include <stdint.h>
 
-static void tick(void *arg)
+static void timer_callback(void *arg)
 {
 	error_print();
 }
 
-static void wifi_handle_event(System_Event_t *se)
+static void wifi_event_callback(System_Event_t *se)
 {
 	switch (se->event) {
 	case EVENT_STAMODE_CONNECTED:
@@ -50,6 +52,16 @@ static void wifi_handle_event(System_Event_t *se)
 	}
 }
 
+static void udp_recv_callback(void *arg, char *pdata, unsigned short len)
+{
+	os_printf("udp_recv_callback");
+}
+
+static void udp_sent_callback(void *arg)
+{
+	os_printf("udp_sent_callback");
+}
+
 static void set_up_uart(void)
 {
 	gpio_init();
@@ -77,11 +89,12 @@ static void set_up_ap(void)
 		.max_connection = 4,
 		.beacon_interval = 100
 	};
+
 	if (!wifi_softap_set_config_current(&ap_config)) {
 		error("wifi_softap_set_config_current");
 	}
 
-	// for the next steps, dhcpd needs to be disabled
+	// we will run our own dhcpd
 
 	if (!wifi_softap_dhcps_stop()) {
 		error("wifi_softap_dhcps_start");
@@ -89,7 +102,7 @@ static void set_up_ap(void)
 
 	// configure our ip
 
-	struct ip_info ipinf;
+	static struct ip_info ipinf;
 	IP4_ADDR(&ipinf.ip, 10, 10, 10, 1);
 	IP4_ADDR(&ipinf.gw, 10, 10, 10, 1);
 	IP4_ADDR(&ipinf.netmask, 255, 255, 255, 0);
@@ -98,23 +111,38 @@ static void set_up_ap(void)
 		error("wifi_set_ip_info");
 	}
 
-	// configure & enable dhcp
+	// make sure the ap sents broadcasts, not the station (if enabled)
+	//const uint8_t BROADCAST_IF_AP = 2;
+	//if (!wifi_set_broadcast_if(BROADCAST_IF_AP)) {
+	//	error("wifi_set_broadcast_if");
+	//}
 
-	struct dhcps_lease lease_config = {
-		.start_ip = ipaddr_addr("10.10.10.10"),
-		.end_ip = ipaddr_addr("10.10.10.100"),
+	// report wifi events
+
+	wifi_set_event_handler_cb((wifi_event_handler_cb_t) wifi_event_callback);
+
+	// listen to packages
+
+	static esp_udp udp = {
+		.local_port = 1200,
 	};
-	if (!wifi_softap_set_dhcps_lease(&lease_config)) {
-		error("wifi_softap_set_dhcps_lease");
+
+	static struct espconn udp_client = {
+		.type = ESPCONN_UDP,
+		.proto.udp = &udp,
+	};
+
+	if (espconn_regist_recvcb(&udp_client, udp_recv_callback) != 0) {
+		error("espcon_register_recvb");
 	}
 
-	if (!wifi_softap_dhcps_start()) {
-		error("wifi_softap_dhcps_start");
+	if (espconn_regist_sentcb(&udp_client, udp_sent_callback) != 0) {
+		error("espcon_register_sentcb");
 	}
 
-	// register event handler
-
-	wifi_set_event_handler_cb((wifi_event_handler_cb_t) wifi_handle_event);
+	if (espconn_create(&udp_client) != 0) {
+		error("espconn_create");
+	}
 }
 
 void ICACHE_FLASH_ATTR user_init()
@@ -124,6 +152,6 @@ void ICACHE_FLASH_ATTR user_init()
 
 	// setup timer (1000ms, repeating)
 	static volatile os_timer_t main_timer;
-	os_timer_setfn((ETSTimer*) &main_timer, (os_timer_func_t *)tick, NULL);
+	os_timer_setfn((ETSTimer*) &main_timer, (os_timer_func_t *)timer_callback, NULL);
 	os_timer_arm((ETSTimer*) &main_timer, 1000, 1);
 }
