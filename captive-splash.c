@@ -54,12 +54,12 @@ static void wifi_event_callback(System_Event_t *se)
 
 static void udp_recv_callback(void *arg, char *pdata, unsigned short len)
 {
-	os_printf("udp_recv_callback");
+	os_printf("udp_recv_callback\n");
 }
 
 static void udp_sent_callback(void *arg)
 {
-	os_printf("udp_sent_callback");
+	os_printf("udp_sent_callback\n");
 }
 
 static void set_up_uart(void)
@@ -143,6 +143,21 @@ static void set_up_ap(void)
 	if (espconn_create(&udp_client) != 0) {
 		error("espconn_create");
 	}
+
+	// configure & enable dhcp
+
+	static struct dhcps_lease lease_config;
+	IP4_ADDR(&lease_config.start_ip, 10, 10, 10, 10);
+	IP4_ADDR(&lease_config.end_ip, 10, 10, 10, 100);
+
+	if (!wifi_softap_set_dhcps_lease(&lease_config)) {
+		error("wifi_softap_set_dhcps_lease");
+	}
+
+	if (!wifi_softap_dhcps_start()) {
+		error("wifi_softap_dhcps_start");
+	}
+
 }
 
 void ICACHE_FLASH_ATTR user_init()
