@@ -1,3 +1,4 @@
+#include "http.h"
 #include "error.h"
 #include "user_config.h"
 
@@ -11,12 +12,12 @@
 
 #include <stdint.h>
 
-static void timer_callback(void *arg)
+static void ICACHE_FLASH_ATTR timer_callback(void *arg)
 {
 	error_print();
 }
 
-static void wifi_event_callback(System_Event_t *se)
+static void ICACHE_FLASH_ATTR wifi_event_callback(System_Event_t *se)
 {
 	switch (se->event) {
 	case EVENT_STAMODE_CONNECTED:
@@ -52,26 +53,13 @@ static void wifi_event_callback(System_Event_t *se)
 	}
 }
 
-static void udp_recv_callback(void *arg, char *pdata, unsigned short len)
+void ICACHE_FLASH_ATTR user_init()
 {
-	os_printf("udp_recv_callback\n");
-}
-
-static void udp_sent_callback(void *arg)
-{
-	os_printf("udp_sent_callback\n");
-}
-
-static void set_up_uart(void)
-{
-	gpio_init();
-
+	// configure tty
 	// http://kacangbawang.com/esp8266-sdk-os_printf-prints-garbage
+	gpio_init();
 	uart_div_modify(0, UART_CLK_FREQ / 115200);
-}
 
-static void set_up_ap(void)
-{
 	// switch to ap mode
 
 	const uint8_t SOFT_AP_MODE = 0x02;
@@ -123,42 +111,20 @@ static void set_up_ap(void)
 
 	if (!wifi_softap_set_dhcps_lease(&lease_config)) {
 		error("wifi_softap_set_dhcps_lease");
-	}
+}
 
 	if (!wifi_softap_dhcps_start()) {
 		error("wifi_softap_dhcps_start");
 	}
 
-	// listen to packages
+	// listen to incoming requests
 
-	static esp_udp udp = {
-		.local_port = 1200,
-	};
-
-	static struct espconn udp_client = {
-		.type = ESPCONN_UDP,
-		.proto.udp = &udp,
-	};
-
-	if (espconn_regist_recvcb(&udp_client, udp_recv_callback) != 0) {
-		error("espcon_register_recvb");
+	if (!http_init()) {
+		error("http_init");
 	}
 
-	if (espconn_regist_sentcb(&udp_client, udp_sent_callback) != 0) {
-		error("espcon_register_sentcb");
-	}
+	// set up timer
 
-	if (espconn_create(&udp_client) != 0) {
-		error("espconn_create");
-	}
-}
-
-void ICACHE_FLASH_ATTR user_init()
-{
-	set_up_uart();
-	set_up_ap();
-
-	// setup timer (1000ms, repeating)
 	static volatile os_timer_t main_timer;
 	os_timer_setfn((ETSTimer*) &main_timer, (os_timer_func_t *)timer_callback, NULL);
 	os_timer_arm((ETSTimer*) &main_timer, 1000, 1);
