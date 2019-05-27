@@ -94,7 +94,11 @@ static void set_up_ap(void)
 		error("wifi_softap_set_config_current");
 	}
 
-	// we will run our own dhcpd
+	// report wifi events
+
+	wifi_set_event_handler_cb((wifi_event_handler_cb_t) wifi_event_callback);
+
+	// disable dhcpd while configuring ip settings
 
 	if (!wifi_softap_dhcps_stop()) {
 		error("wifi_softap_dhcps_start");
@@ -111,15 +115,19 @@ static void set_up_ap(void)
 		error("wifi_set_ip_info");
 	}
 
-	// make sure the ap sents broadcasts, not the station (if enabled)
-	//const uint8_t BROADCAST_IF_AP = 2;
-	//if (!wifi_set_broadcast_if(BROADCAST_IF_AP)) {
-	//	error("wifi_set_broadcast_if");
-	//}
+	// configure & enable dhcp
 
-	// report wifi events
+	static struct dhcps_lease lease_config;
+	IP4_ADDR(&lease_config.start_ip, 10, 10, 10, 10);
+	IP4_ADDR(&lease_config.end_ip, 10, 10, 10, 100);
 
-	wifi_set_event_handler_cb((wifi_event_handler_cb_t) wifi_event_callback);
+	if (!wifi_softap_set_dhcps_lease(&lease_config)) {
+		error("wifi_softap_set_dhcps_lease");
+	}
+
+	if (!wifi_softap_dhcps_start()) {
+		error("wifi_softap_dhcps_start");
+	}
 
 	// listen to packages
 
@@ -143,21 +151,6 @@ static void set_up_ap(void)
 	if (espconn_create(&udp_client) != 0) {
 		error("espconn_create");
 	}
-
-	// configure & enable dhcp
-
-	static struct dhcps_lease lease_config;
-	IP4_ADDR(&lease_config.start_ip, 10, 10, 10, 10);
-	IP4_ADDR(&lease_config.end_ip, 10, 10, 10, 100);
-
-	if (!wifi_softap_set_dhcps_lease(&lease_config)) {
-		error("wifi_softap_set_dhcps_lease");
-	}
-
-	if (!wifi_softap_dhcps_start()) {
-		error("wifi_softap_dhcps_start");
-	}
-
 }
 
 void ICACHE_FLASH_ATTR user_init()
