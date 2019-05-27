@@ -9,79 +9,93 @@
 
 #include <espconn.h>
 
-static const char greeting[] = "Hello, I'm an ESP\n";
-#define TCP_SERVER_GREETING ((uint8_t*) greeting)
-
-// return length of zero-terminated buffer
-static uint16_t ICACHE_FLASH_ATTR blen(const uint8_t *buffer)
+// return pointer to the reserved area in a espconn
+static uint16_t ICACHE_FLASH_ATTR *reserved(struct espconn *conn)
 {
-	return strlen((char*) buffer);
+	return (uint16_t*) &conn->reverse;
 }
 
-static void ICACHE_FLASH_ATTR connectcb(void*arg)
+static void ICACHE_FLASH_ATTR connectcb(void *arg)
 {
-	struct espconn* tcp_server_local = arg;
-#if TCP_SERVER_KEEP_ALIVE_ENABLE
-	espconn_set_opt(tcp_server_local, BIT(3)); //enable keep alive ,this api must call in connect callback
+	static uint16_t next_connid;
 
-	uint32 keep_alvie = 0;
-	keep_alvie = TCP_SERVER_KEEP_ALIVE_IDLE_S;
-	espconn_set_keepalive(tcp_server_local, ESPCONN_KEEPIDLE, &keep_alvie);
-	keep_alvie = TCP_SERVER_RETRY_INTVL_S;
-	espconn_set_keepalive(tcp_server_local, ESPCONN_KEEPINTVL, &keep_alvie);
-	keep_alvie = keep_alvie = TCP_SERVER_RETRY_INTVL_S;
-	espconn_set_keepalive(tcp_server_local, ESPCONN_KEEPCNT, &keep_alvie);
-	os_printf("keep alive enable\n");
-#endif
-	os_printf("TCP server CONNECT");
-	os_printf("tcp client ip:%d.%d.%d.%d port:%d", tcp_server_local->proto.tcp->remote_ip[0],
-			tcp_server_local->proto.tcp->remote_ip[1], tcp_server_local->proto.tcp->remote_ip[2],
-			tcp_server_local->proto.tcp->remote_ip[3], tcp_server_local->proto.tcp->remote_port);
-	espconn_send(tcp_server_local, TCP_SERVER_GREETING, blen(TCP_SERVER_GREETING));
+	struct espconn *conn = arg;
+	*reserved(conn) = next_connid++;
+
+	os_printf("http.c:connectcb connid=%d ip=%d.%d.%d.%d port=%d\n",
+		*reserved(conn),
+		conn->proto.tcp->remote_ip[0],
+		conn->proto.tcp->remote_ip[1],
+		conn->proto.tcp->remote_ip[2],
+		conn->proto.tcp->remote_ip[3],
+		conn->proto.tcp->remote_port
+	);
 }
 
-static void ICACHE_FLASH_ATTR disconcb(void* arg)
+static void ICACHE_FLASH_ATTR disconcb(void *arg)
 {
-	struct espconn* tcp_server_local = arg;
-	os_printf("TCP server DISCONNECT");
-	os_printf("tcp client ip:%d.%d.%d.%d port:%d\n", tcp_server_local->proto.tcp->remote_ip[0],
-			tcp_server_local->proto.tcp->remote_ip[1], tcp_server_local->proto.tcp->remote_ip[2],
-			tcp_server_local->proto.tcp->remote_ip[3], tcp_server_local->proto.tcp->remote_port);
+	struct espconn* conn = arg;
+
+	os_printf("http.c:disconcb connid=%d ip=%d.%d.%d.%d port=%d\n",
+		*reserved(conn),
+		conn->proto.tcp->remote_ip[0],
+		conn->proto.tcp->remote_ip[1],
+		conn->proto.tcp->remote_ip[2],
+		conn->proto.tcp->remote_ip[3],
+		conn->proto.tcp->remote_port
+	);
 }
 
-static void ICACHE_FLASH_ATTR sentcb(void* arg)
+static void ICACHE_FLASH_ATTR sentcb(void *arg)
 {
-	struct espconn* tcp_server_local = arg;
-	os_printf("TCP server SendCb");
-	os_printf("tcp client ip:%d.%d.%d.%d port:%d\n", tcp_server_local->proto.tcp->remote_ip[0],
-			tcp_server_local->proto.tcp->remote_ip[1], tcp_server_local->proto.tcp->remote_ip[2],
-			tcp_server_local->proto.tcp->remote_ip[3], tcp_server_local->proto.tcp->remote_port);
+	struct espconn *conn = arg;
+
+	os_printf("http.c:sentcb connid=%d ip=%d.%d.%d.%d port=%d\n",
+		*reserved(conn),
+		conn->proto.tcp->remote_ip[0],
+		conn->proto.tcp->remote_ip[1],
+		conn->proto.tcp->remote_ip[2],
+		conn->proto.tcp->remote_ip[3],
+		conn->proto.tcp->remote_port
+	);
 }
 
 static void ICACHE_FLASH_ATTR recvcb(void *arg, char *pdata, unsigned short len)
 {
-	struct espconn* tcp_server_local = arg;
-	os_printf("Recv tcp client ip:%d.%d.%d.%d port:%d len:%d\n", tcp_server_local->proto.tcp->remote_ip[0],
-			tcp_server_local->proto.tcp->remote_ip[1], tcp_server_local->proto.tcp->remote_ip[2],
-			tcp_server_local->proto.tcp->remote_ip[3], tcp_server_local->proto.tcp->remote_port, len);
-	espconn_send(tcp_server_local, (uint8_t*) pdata, len);
+	struct espconn *conn = arg;
+
+	os_printf("http.c:recvb connid=%d ip=%d.%d.%d.%d port=%d len=%d\n",
+		*reserved(conn),
+		conn->proto.tcp->remote_ip[0],
+		conn->proto.tcp->remote_ip[1],
+		conn->proto.tcp->remote_ip[2],
+		conn->proto.tcp->remote_ip[3],
+		conn->proto.tcp->remote_port,
+		len
+	);
+
+	espconn_send(conn, (uint8_t*) pdata, len);
 }
 
 static void ICACHE_FLASH_ATTR reconcb(void *arg, sint8 err)
 {
-	struct espconn* tcp_server_local = arg;
-	os_printf("TCP server RECONNECT");
-	os_printf("status:%d\n", err);
-	os_printf("tcp client ip:%d.%d.%d.%d port:%d\n", tcp_server_local->proto.tcp->remote_ip[0],
-			tcp_server_local->proto.tcp->remote_ip[1], tcp_server_local->proto.tcp->remote_ip[2],
-			tcp_server_local->proto.tcp->remote_ip[3], tcp_server_local->proto.tcp->remote_port\
-);
+	struct espconn *conn = arg;
+
+	os_printf("http.c:reconcb connid=%d ip=%d.%d.%d.%d port=%d status=%d\n",
+		*reserved(conn),
+		conn->proto.tcp->remote_ip[0],
+		conn->proto.tcp->remote_ip[1],
+		conn->proto.tcp->remote_ip[2],
+		conn->proto.tcp->remote_ip[3],
+		conn->proto.tcp->remote_port,
+		err
+	);
 }
 
 bool ICACHE_FLASH_ATTR http_init(void)
 {
 	static esp_tcp tcp = {
-		.local_port = 8080,
+		.local_port = 80,
 	};
 
 	static struct espconn tcp_server = {
