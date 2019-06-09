@@ -18,44 +18,6 @@ static void ICACHE_FLASH_ATTR timer_callback(void *arg)
 	error_print();
 }
 
-static void ICACHE_FLASH_ATTR wifi_event_callback(System_Event_t *se)
-{
-#if DEBUG
-	switch (se->event) {
-	case EVENT_STAMODE_CONNECTED:
-		os_printf("EVENT_STAMODE_CONNECTED\n");
-		break;
-	case EVENT_STAMODE_DISCONNECTED:
-		os_printf("EVENT_STAMODE_DISCONNECTED\n");
-		break;
-	case EVENT_STAMODE_AUTHMODE_CHANGE:
-		os_printf("EVENT_STAMODE_AUTHMODE_CHANGE\n");
-		break;
-	case EVENT_STAMODE_GOT_IP:
-		os_printf("EVENT_STAMODE_GOT_IP\n");
-		break;
-	case EVENT_STAMODE_DHCP_TIMEOUT:
-		os_printf("EVENT_STAMODE_DHCP_TIMEOUT\n");
-		break;
-	case EVENT_SOFTAPMODE_STACONNECTED:
-		os_printf("EVENT_SOFTAPMODE_STACONNECTED\n");
-		break;
-	case EVENT_SOFTAPMODE_STADISCONNECTED:
-		os_printf("EVENT_SOFTAPMODE_STADISCONNECTED\n");
-		break;
-	case EVENT_SOFTAPMODE_PROBEREQRECVED:
-		os_printf("EVENT_SOFTAPMODE_PROBEREQRECVED\n");
-		break;
-	case EVENT_OPMODE_CHANGED:
-		os_printf("EVENT_OPMODE_CHANGED\n");
-		break;
-	case EVENT_MAX:
-		os_printf("EVENT_MAX\n");
-		break;
-	}
-#endif
-}
-
 void ICACHE_FLASH_ATTR user_init()
 {
 	// configure tty
@@ -84,10 +46,6 @@ void ICACHE_FLASH_ATTR user_init()
 	if (!wifi_softap_set_config_current(&ap_config)) {
 		error("wifi_softap_set_config_current");
 	}
-
-	// report wifi events
-
-	wifi_set_event_handler_cb((wifi_event_handler_cb_t) wifi_event_callback);
 
 	// disable dhcpd while configuring ip settings
 
