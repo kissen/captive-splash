@@ -82,11 +82,18 @@ static void print_dns_header(const struct dns_header *header)
  * callbacks
  */
 
+static ICACHE_FLASH_ATTR void sentcb(void *arg);
+
 static ICACHE_FLASH_ATTR void recvcb(void *arg, char *pdata, unsigned short len)
 {
-	struct espconn *conn = arg;
+	const struct espconn *conn = arg;
 
-	os_printf("dns.c:recvb ip=%d.%d.%d.%d port=%d len=%d\n",
+	os_printf("dns.c:recvb local_ip=%d.%d.%d.%d local_port=%d remote_ip=%d.%d.%d.%d remote_port=%d len=%d\n",
+		conn->proto.tcp->local_ip[0],
+		conn->proto.tcp->local_ip[1],
+		conn->proto.tcp->local_ip[2],
+		conn->proto.tcp->local_ip[3],
+		conn->proto.tcp->local_port,
 		conn->proto.tcp->remote_ip[0],
 		conn->proto.tcp->remote_ip[1],
 		conn->proto.tcp->remote_ip[2],
@@ -152,32 +159,60 @@ static ICACHE_FLASH_ATTR void recvcb(void *arg, char *pdata, unsigned short len)
 	}
 
 	size_t sendoff = 0;
-
 	memcpy(&sendbuf[sendoff], &reply_header, sizeof(reply_header));
 	sendoff += sizeof(reply_header);
-
 	memcpy(&sendbuf[sendoff], question, question_len);
 	sendoff += question_len;
-
 	memcpy(&sendbuf[sendoff], &answer, sizeof(answer));
 	sendoff += sizeof(answer);
 
-	espconn_send(conn, (uint8_t*) sendbuf, total_size);
-
 	utils_hexdump(sendbuf, total_size);
+
+	static esp_udp reply_udp;
+	static struct espconn reply_conn = {
+		.type = ESPCONN_UDP,
+		.proto.udp = &reply_udp,
+	};
+
+	if (espconn_regist_sentcb(&reply_conn, sentcb) != 0) {
+		error("dns: espcon_register_sentcb");
+	}
+
+	memset(&reply_udp, 0, sizeof(reply_udp));
+	memset(&reply_conn, 0, sizeof(reply_conn));
+
+	// reply_udp.local_port = 53;
+	// reply_udp.remote_port = conn->proto.udp->remote_port;
+	// memcpy(&reply_udp.local_ip, &dns_reply_with.addr, 4);
+	// memcpy(&reply_udp.remote_ip, &conn->proto.udp->remote_ip, 4);
+	reply_udp.remote_port = 53;
+	reply_udp.local_port = conn->proto.udp->remote_port;
+	memcpy(&reply_udp.remote_ip, &dns_reply_with.addr, 4);
+	memcpy(&reply_udp.local_ip, &conn->proto.udp->remote_ip, 4);
+
+	int8_t err;
+	if ((err = espconn_send(&reply_conn, (uint8_t*) sendbuf, total_size)) != 0) {
+		os_printf("espconn_send failed; err=%d\n", err);
+	};
 }
 
 static ICACHE_FLASH_ATTR void sentcb(void *arg)
 {
-	struct espconn *conn = arg;
+	const struct espconn *conn = arg;
 
-	os_printf("dns.c:sentcb ip=%d.%d.%d.%d port=%d\n",
+	os_printf("dns.c:sentcb local_ip=%d.%d.%d.%d local_port=%d remote_ip=%d.%d.%d.%d remote_port=%d\n",
+		conn->proto.tcp->local_ip[0],
+		conn->proto.tcp->local_ip[1],
+		conn->proto.tcp->local_ip[2],
+		conn->proto.tcp->local_ip[3],
+		conn->proto.tcp->local_port,
 		conn->proto.tcp->remote_ip[0],
 		conn->proto.tcp->remote_ip[1],
 		conn->proto.tcp->remote_ip[2],
 		conn->proto.tcp->remote_ip[3],
 		conn->proto.tcp->remote_port
 	);
+
 }
 
 /*
