@@ -86,7 +86,7 @@ static ICACHE_FLASH_ATTR void sentcb(void *arg);
 
 static ICACHE_FLASH_ATTR void recvcb(void *arg, char *pdata, unsigned short len)
 {
-	const struct espconn *conn = arg;
+	struct espconn *conn = arg;
 
 	os_printf("dns.c:recvb local_ip=%d.%d.%d.%d local_port=%d remote_ip=%d.%d.%d.%d remote_port=%d len=%d\n",
 		conn->proto.tcp->local_ip[0],
@@ -139,11 +139,11 @@ static ICACHE_FLASH_ATTR void recvcb(void *arg, char *pdata, unsigned short len)
 	memcpy(&qclass, &question[question_len - 2], 2);
 
 	struct dns_answer answer = {
-		.name = 0xc00c,
+		.name = 0x0cc0,
 		.type = qtype,
 		.class = qclass,
 		.ttl = htonl(5 * 60),
-		.rdlength = 4,
+		.rdlength = htons(4),
 		.rdata = dns_reply_with.addr  // XXX: endianess???
 	};
 
@@ -168,30 +168,8 @@ static ICACHE_FLASH_ATTR void recvcb(void *arg, char *pdata, unsigned short len)
 
 	utils_hexdump(sendbuf, total_size);
 
-	static esp_udp reply_udp;
-	static struct espconn reply_conn = {
-		.type = ESPCONN_UDP,
-		.proto.udp = &reply_udp,
-	};
-
-	if (espconn_regist_sentcb(&reply_conn, sentcb) != 0) {
-		error("dns: espcon_register_sentcb");
-	}
-
-	memset(&reply_udp, 0, sizeof(reply_udp));
-	memset(&reply_conn, 0, sizeof(reply_conn));
-
-	// reply_udp.local_port = 53;
-	// reply_udp.remote_port = conn->proto.udp->remote_port;
-	// memcpy(&reply_udp.local_ip, &dns_reply_with.addr, 4);
-	// memcpy(&reply_udp.remote_ip, &conn->proto.udp->remote_ip, 4);
-	reply_udp.remote_port = 53;
-	reply_udp.local_port = conn->proto.udp->remote_port;
-	memcpy(&reply_udp.remote_ip, &dns_reply_with.addr, 4);
-	memcpy(&reply_udp.local_ip, &conn->proto.udp->remote_ip, 4);
-
 	int8_t err;
-	if ((err = espconn_send(&reply_conn, (uint8_t*) sendbuf, total_size)) != 0) {
+	if ((err = espconn_send(conn, (uint8_t*) sendbuf, total_size)) != 0) {
 		os_printf("espconn_send failed; err=%d\n", err);
 	};
 }
