@@ -46,12 +46,6 @@ struct dns_header
 	uint16_t arcount;
 } __attribute__((packed));
 
-struct dns_question
-{
-	uint16_t qtype;
-	uint16_t qclass;
-} __attribute__((packed));
-
 struct dns_answer
 {
 	uint16_t name;
@@ -80,7 +74,7 @@ static void print_dns_header(const struct dns_header *header)
 	const uint8_t tc = to_bool(header->flags & TC);
 	const uint8_t rd = to_bool(header->flags & RD);
 
-	os_printf("dns_header{id=%04x qr=%d op=%d tc=%d rd=%d qdcount=%d}",
+	os_printf("dns_header{id=%04x qr=%d op=%d tc=%d rd=%d qdcount=%d}\n",
 		  header->id, qr, op, tc, rd, ntohs(header->qdcount));
 }
 
@@ -106,41 +100,21 @@ static ICACHE_FLASH_ATTR void recvcb(void *arg, char *pdata, unsigned short len)
 	// (1) analyze header
 
 	const struct dns_header *header = (struct dns_header*) pdata;
-	const uint16 flags = header->flags;
-
-	if (flags & QR || flags & OPCODE || flags & TC || flags & RD) {
-		os_printf("dns: warn: unsupported flags: ");
-		print_dns_header(header);
-		os_printf("\n");
-	}
-
-	if (ntohs(header->qdcount) != 1) {
-		os_printf("dns: warn: unsupported QDCOUNT: ");
-		print_dns_header(header);
-		os_printf("\n");
-	}
+	print_dns_header(header);
 
 	// (2) analyze question
 
 	const size_t question_offset = sizeof(*header);
 	const char *question = &pdata[question_offset];
-	int label_count = 0;
 
-	while (*question) {
-		const uint8_t label_len = (const uint8_t) *question;
-		question += 1;
-
-		char buf[label_len + 1];
-		buf[label_len] = 0;
-
-		for (size_t i = 0; i < label_len; ++i) {
-			buf[i] = *question;
-			question += 1;
-		}
-
-		label_count += 1;
-		os_printf("label(%d)=%s\n", label_count, buf);
+	size_t question_len = 0;
+	for (const char *ptr = question; *ptr; ++ptr) {
+		question_len += 1;
 	}
+
+	question_len += 1;  // terminating zero
+	question_len += 2;  // qtype
+	question_len += 2;  // qclass
 
 	// (3) construct reply
 
@@ -153,20 +127,17 @@ static ICACHE_FLASH_ATTR void recvcb(void *arg, char *pdata, unsigned short len)
 		.arcount = 0
 	};
 
-	// XXX: assumes there is exactly one question
-	const size_t question_len = len - sizeof(*header);
-	struct dns_question question_meta;
-	memcpy(&question_meta.qtype, &question[question_len - 4], 2);
-	memcpy(&question_meta.qclass, &question[question_len - 2], 2);
+	uint16_t qtype, qclass;
+	memcpy(&qtype, &question[question_len - 4], 2);
+	memcpy(&qclass, &question[question_len - 2], 2);
 
-	// TODO: Work with dns_answer
 	struct dns_answer answer = {
 		.name = 0xc00c,
-		.type = question_meta.qtype,
-		.class = question_meta.qclass,
+		.type = qtype,
+		.class = qclass,
 		.ttl = htonl(5 * 60),
 		.rdlength = 4,
-		.rdata = dns_reply_with.addr
+		.rdata = dns_reply_with.addr  // XXX: endianess???
 	};
 
 	// (4) send reply
@@ -174,6 +145,7 @@ static ICACHE_FLASH_ATTR void recvcb(void *arg, char *pdata, unsigned short len)
 	static uint8_t sendbuf[256];
 
 	const size_t total_size = sizeof(reply_header) + question_len + sizeof(answer);
+
 	if (total_size > sizeof(sendbuf)) {
 		os_printf("dns: would have to generate %d bytes, that's too much", total_size);
 		return;
@@ -191,6 +163,8 @@ static ICACHE_FLASH_ATTR void recvcb(void *arg, char *pdata, unsigned short len)
 	sendoff += sizeof(answer);
 
 	espconn_send(conn, (uint8_t*) sendbuf, total_size);
+
+	utils_hexdump(sendbuf, total_size);
 }
 
 static ICACHE_FLASH_ATTR void sentcb(void *arg)
