@@ -82,23 +82,24 @@ static void print_dns_header(const struct dns_header *header)
  * callbacks
  */
 
-static ICACHE_FLASH_ATTR void sentcb(void *arg);
-
 static ICACHE_FLASH_ATTR void recvcb(void *arg, char *pdata, unsigned short len)
 {
 	struct espconn *conn = arg;
 
+	remot_info *premot = NULL;
+	espconn_get_connection_info(conn, &premot, 0);
+
 	os_printf("dns.c:recvb local_ip=%d.%d.%d.%d local_port=%d remote_ip=%d.%d.%d.%d remote_port=%d len=%d\n",
-		conn->proto.tcp->local_ip[0],
-		conn->proto.tcp->local_ip[1],
-		conn->proto.tcp->local_ip[2],
-		conn->proto.tcp->local_ip[3],
-		conn->proto.tcp->local_port,
-		conn->proto.tcp->remote_ip[0],
-		conn->proto.tcp->remote_ip[1],
-		conn->proto.tcp->remote_ip[2],
-		conn->proto.tcp->remote_ip[3],
-		conn->proto.tcp->remote_port,
+		conn->proto.udp->local_ip[0],
+		conn->proto.udp->local_ip[1],
+		conn->proto.udp->local_ip[2],
+		conn->proto.udp->local_ip[3],
+		conn->proto.udp->local_port,
+		premot->remote_ip[0],
+		premot->remote_ip[1],
+		premot->remote_ip[2],
+		premot->remote_ip[3],
+		premot->remote_port,
 		len
 	);
 
@@ -179,16 +180,16 @@ static ICACHE_FLASH_ATTR void sentcb(void *arg)
 	const struct espconn *conn = arg;
 
 	os_printf("dns.c:sentcb local_ip=%d.%d.%d.%d local_port=%d remote_ip=%d.%d.%d.%d remote_port=%d\n",
-		conn->proto.tcp->local_ip[0],
-		conn->proto.tcp->local_ip[1],
-		conn->proto.tcp->local_ip[2],
-		conn->proto.tcp->local_ip[3],
-		conn->proto.tcp->local_port,
-		conn->proto.tcp->remote_ip[0],
-		conn->proto.tcp->remote_ip[1],
-		conn->proto.tcp->remote_ip[2],
-		conn->proto.tcp->remote_ip[3],
-		conn->proto.tcp->remote_port
+		conn->proto.udp->local_ip[0],
+		conn->proto.udp->local_ip[1],
+		conn->proto.udp->local_ip[2],
+		conn->proto.udp->local_ip[3],
+		conn->proto.udp->local_port,
+		conn->proto.udp->remote_ip[0],
+		conn->proto.udp->remote_ip[1],
+		conn->proto.udp->remote_ip[2],
+		conn->proto.udp->remote_ip[3],
+		conn->proto.udp->remote_port
 	);
 
 }
