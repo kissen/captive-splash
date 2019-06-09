@@ -124,7 +124,7 @@ void ICACHE_FLASH_ATTR user_init()
 
 	// listen to incoming requests
 
-	if (!http_init()) {
+	if (!http_server_init()) {
 		error("http_init");
 	}
 

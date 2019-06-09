@@ -92,7 +92,7 @@ static void ICACHE_FLASH_ATTR reconcb(void *arg, sint8 err)
 	);
 }
 
-bool ICACHE_FLASH_ATTR http_init(void)
+bool ICACHE_FLASH_ATTR http_server_init(void)
 {
 	static esp_tcp tcp = {
 		.local_port = 80,

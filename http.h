@@ -11,4 +11,4 @@
  * Initialize the HTTP server. Return true on success and false on
  * failure.
  */
-bool http_init(void);
+bool http_server_init(void);
