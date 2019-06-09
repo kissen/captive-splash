@@ -13,21 +13,21 @@
 /*
  * types;
  *
- * ESP8266 is big endian so we shouldn't have to convert from network
- * byte order;
+ * ESP8266 is little endian in the way we are using it; let's keep the structs
+ * in network byte order and convert as necessary when reading/writing
  *
  * with help from https://routley.io/tech/2017/12/28/hand-writing-dns-messages.html
  */
 
-static const uint16_t DNS_HEADER_QR     = 0x8000;
-static const uint16_t DNS_HEADER_OPCODE = 0x7800;
-static const uint16_t DNS_HEADER_AA     = 0x0400;
-static const uint16_t DNS_HEADER_TC     = 0x0200;
-static const uint16_t DNS_HEADER_RD     = 0x0100;
-static const uint16_t DNS_HEADER_RA     = 0x0080;
-static const uint16_t DNS_HEADER_Z      = 0x0070;
-static const uint16_t DNS_HEADER_RCODE  = 0x000f;
-
+// bitmasks for dns_header.flags
+static const uint16_t QR     = 0x8000;
+static const uint16_t OPCODE = 0x7800;
+static const uint16_t AA     = 0x0400;
+static const uint16_t TC     = 0x0200;
+static const uint16_t RD     = 0x0100;
+static const uint16_t RA     = 0x0080;
+static const uint16_t Z      = 0x0070;
+static const uint16_t RCODE  = 0x000f;
 
 struct dns_header
 {
@@ -46,18 +46,19 @@ static bool to_bool(int condition)
 
 static const uint8_t opcode(const struct dns_header *header)
 {
-	const uint16_t res =  (header->flags & DNS_HEADER_OPCODE) >> 11;
+	const uint16_t res =  (header->flags & OPCODE) >> 11;
 	return (uint8_t) res;
 }
 
 static void print_dns_header(const struct dns_header *header)
 {
-	const bool qr = to_bool(header->flags & DNS_HEADER_QR);
+	const bool qr = to_bool(header->flags & QR);
 	const uint8_t op = opcode(header);
-	const uint8_t tc = to_bool(header->flags & DNS_HEADER_TC);
-	const uint8_t rd = to_bool(header->flags & DNS_HEADER_RD);
+	const uint8_t tc = to_bool(header->flags & TC);
+	const uint8_t rd = to_bool(header->flags & RD);
 
-	os_printf("dns_header{id=%04x qr=%d op=%d tc=%d rd=%d}\n", header->id, qr, op, tc, rd);
+	os_printf("dns_header{id=%04x qr=%d op=%d tc=%d rd=%d qdcount=%d}",
+		  header->id, qr, op, tc, rd, ntohs(header->qdcount));
 }
 
 /*
@@ -80,9 +81,25 @@ static ICACHE_FLASH_ATTR void recvcb(void *arg, char *pdata, unsigned short len)
 	utils_hexdump(pdata, len);
 
 	const struct dns_header *header = (struct dns_header*) pdata;
+	const uint16 flags = header->flags;
+
 	print_dns_header(header);
 
-	espconn_send(conn, (uint8_t*) pdata, len);
+	if (flags & QR || flags & OPCODE || flags & TC || flags & RD) {
+		os_printf("dns: unsupported flags: ");
+		print_dns_header(header);
+		os_printf("\n");
+		return;
+	}
+
+	if (ntohs(header->qdcount) != 1) {
+		os_printf("dns: unsupported QDCOUNT: ");
+		print_dns_header(header);
+		os_printf("\n");
+		return;
+	}
+
+	//espconn_send(conn, (uint8_t*) pdata, len);
 }
 
 static ICACHE_FLASH_ATTR void sentcb(void *arg)
