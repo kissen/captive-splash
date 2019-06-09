@@ -1,5 +1,6 @@
 #include "error.h"
 #include "http.h"
+#include "utils.h"
 
 #include <ets_sys.h>
 #include <gpio.h>
@@ -11,12 +12,33 @@
 
 static ICACHE_FLASH_ATTR void recvcb(void *arg, char *pdata, unsigned short len)
 {
-	os_printf("recvb\n");
+	struct espconn *conn = arg;
+
+	os_printf("dns.c:recvb connid=%d ip=%d.%d.%d.%d port=%d len=%d\n",
+		*utils_reserved(conn),
+		conn->proto.tcp->remote_ip[0],
+		conn->proto.tcp->remote_ip[1],
+		conn->proto.tcp->remote_ip[2],
+		conn->proto.tcp->remote_ip[3],
+		conn->proto.tcp->remote_port,
+		len
+	);
+
+	espconn_send(conn, (uint8_t*) pdata, len);
 }
 
 static ICACHE_FLASH_ATTR void sentcb(void *arg)
 {
-	os_printf("sentcb\n");
+	struct espconn *conn = arg;
+
+	os_printf("dns.c:sentcb connid=%d ip=%d.%d.%d.%d port=%d\n",
+		*utils_reserved(conn),
+		conn->proto.tcp->remote_ip[0],
+		conn->proto.tcp->remote_ip[1],
+		conn->proto.tcp->remote_ip[2],
+		conn->proto.tcp->remote_ip[3],
+		conn->proto.tcp->remote_port
+	);
 }
 
 bool ICACHE_FLASH_ATTR dns_server_init(void)
@@ -25,23 +47,23 @@ bool ICACHE_FLASH_ATTR dns_server_init(void)
 		.local_port = 53,
 	};
 
-	static struct espconn udp_client = {
+	static struct espconn udp_server = {
 		.type = ESPCONN_UDP,
 		.proto.udp = &udp,
 	};
 
-	if (espconn_regist_recvcb(&udp_client, recvcb) != 0) {
-		error("espcon_register_recvb");
+	if (espconn_regist_recvcb(&udp_server, recvcb) != 0) {
+		error("dns: espcon_register_recvb");
 		return false;
 	}
 
-	if (espconn_regist_sentcb(&udp_client, sentcb) != 0) {
-		error("espcon_register_sentcb");
+	if (espconn_regist_sentcb(&udp_server, sentcb) != 0) {
+		error("dns: espcon_register_sentcb");
 		return false;
 	}
 
-	if (espconn_create(&udp_client) != 0) {
-		error("espconn_create");
+	if (espconn_create(&udp_server) != 0) {
+		error("dns: espconn_create");
 		return false;
 	}
 

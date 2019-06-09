@@ -1,6 +1,6 @@
 #include "error.h"
-#include "http.h"
 #include "utils.h"
+#include "http.h"
 
 #include <ets_sys.h>
 #include <gpio.h>
@@ -41,6 +41,21 @@ static void ICACHE_FLASH_ATTR disconcb(void *arg)
 	);
 }
 
+static void ICACHE_FLASH_ATTR reconcb(void *arg, sint8 err)
+{
+	struct espconn *conn = arg;
+
+	os_printf("http.c:reconcb connid=%d ip=%d.%d.%d.%d port=%d status=%d\n",
+		*utils_reserved(conn),
+		conn->proto.tcp->remote_ip[0],
+		conn->proto.tcp->remote_ip[1],
+		conn->proto.tcp->remote_ip[2],
+		conn->proto.tcp->remote_ip[3],
+		conn->proto.tcp->remote_port,
+		err
+	);
+}
+
 static void ICACHE_FLASH_ATTR sentcb(void *arg)
 {
 	struct espconn *conn = arg;
@@ -72,21 +87,6 @@ static void ICACHE_FLASH_ATTR recvcb(void *arg, char *pdata, unsigned short len)
 	espconn_send(conn, (uint8_t*) pdata, len);
 }
 
-static void ICACHE_FLASH_ATTR reconcb(void *arg, sint8 err)
-{
-	struct espconn *conn = arg;
-
-	os_printf("http.c:reconcb connid=%d ip=%d.%d.%d.%d port=%d status=%d\n",
-		*utils_reserved(conn),
-		conn->proto.tcp->remote_ip[0],
-		conn->proto.tcp->remote_ip[1],
-		conn->proto.tcp->remote_ip[2],
-		conn->proto.tcp->remote_ip[3],
-		conn->proto.tcp->remote_port,
-		err
-	);
-}
-
 bool ICACHE_FLASH_ATTR http_server_init(void)
 {
 	static esp_tcp tcp = {
@@ -103,8 +103,8 @@ bool ICACHE_FLASH_ATTR http_server_init(void)
 		return false;
 	}
 
-	if (espconn_regist_recvcb(&tcp_server, recvcb) != 0) {
-		error("espconn_regist_recvb");
+	if (espconn_regist_disconcb(&tcp_server, disconcb) != 0) {
+		error("espconn_regist_disconcb");
 		return false;
 	}
 
@@ -113,8 +113,8 @@ bool ICACHE_FLASH_ATTR http_server_init(void)
 		return false;
 	}
 
-	if (espconn_regist_disconcb(&tcp_server, disconcb) != 0) {
-		error("espconn_regist_disconcb");
+	if (espconn_regist_recvcb(&tcp_server, recvcb) != 0) {
+		error("espconn_regist_recvb");
 		return false;
 	}
 

@@ -114,9 +114,13 @@ void ICACHE_FLASH_ATTR user_init()
 		error("wifi_softap_set_dhcps_lease");
 	}
 
-	uint8_t dhcps_mode = 1;  // enable "router information"
-	if (!wifi_softap_set_dhcps_offer_option(OFFER_ROUTER, &dhcps_mode)) {
+	uint8_t enable_router_information = 1;
+	if (!wifi_softap_set_dhcps_offer_option(OFFER_ROUTER, &enable_router_information)) {
 		error("wifi_softap_set_dhcps_offer_option");
+	}
+
+	for (uint8_t i = 0; i < 2; ++i) {
+		espconn_dns_setserver(i, &ipinf.ip);
 	}
 
 	if (!wifi_softap_dhcps_start()) {
