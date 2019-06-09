@@ -15,3 +15,8 @@
  * We can use it store all kinds of fun information.
  */
 uint16_t *utils_reserved(struct espconn *conn);
+
+/*
+ * Print buf as hexdump to serial.
+ */
+void utils_hexdump(void *buf, size_t buflen);

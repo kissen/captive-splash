@@ -24,6 +24,8 @@ static ICACHE_FLASH_ATTR void recvcb(void *arg, char *pdata, unsigned short len)
 		len
 	);
 
+	utils_hexdump(pdata, len);
+
 	espconn_send(conn, (uint8_t*) pdata, len);
 }
 
