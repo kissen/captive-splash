@@ -1,5 +1,6 @@
-#include "http.h"
+#include "dns.h"
 #include "error.h"
+#include "http.h"
 #include "user_config.h"
 
 #include <ets_sys.h>
@@ -125,7 +126,11 @@ void ICACHE_FLASH_ATTR user_init()
 	// listen to incoming requests
 
 	if (!http_server_init()) {
-		error("http_init");
+		error("http_server_init");
+	}
+
+	if (!dns_server_init()) {
+		error("dns_server_init");
 	}
 
 	// set up timer

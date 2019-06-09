@@ -1,5 +1,6 @@
 #include "error.h"
 #include "http.h"
+#include "utils.h"
 
 #include <ets_sys.h>
 #include <gpio.h>
@@ -9,21 +10,15 @@
 
 #include <espconn.h>
 
-// return pointer to the reserved area in a espconn
-static uint16_t ICACHE_FLASH_ATTR *reserved(struct espconn *conn)
-{
-	return (uint16_t*) &conn->reverse;
-}
-
 static void ICACHE_FLASH_ATTR connectcb(void *arg)
 {
 	static uint16_t next_connid;
 
 	struct espconn *conn = arg;
-	*reserved(conn) = next_connid++;
+	*utils_reserved(conn) = next_connid++;
 
 	os_printf("http.c:connectcb connid=%d ip=%d.%d.%d.%d port=%d\n",
-		*reserved(conn),
+		*utils_reserved(conn),
 		conn->proto.tcp->remote_ip[0],
 		conn->proto.tcp->remote_ip[1],
 		conn->proto.tcp->remote_ip[2],
@@ -37,7 +32,7 @@ static void ICACHE_FLASH_ATTR disconcb(void *arg)
 	struct espconn* conn = arg;
 
 	os_printf("http.c:disconcb connid=%d ip=%d.%d.%d.%d port=%d\n",
-		*reserved(conn),
+		*utils_reserved(conn),
 		conn->proto.tcp->remote_ip[0],
 		conn->proto.tcp->remote_ip[1],
 		conn->proto.tcp->remote_ip[2],
@@ -51,7 +46,7 @@ static void ICACHE_FLASH_ATTR sentcb(void *arg)
 	struct espconn *conn = arg;
 
 	os_printf("http.c:sentcb connid=%d ip=%d.%d.%d.%d port=%d\n",
-		*reserved(conn),
+		*utils_reserved(conn),
 		conn->proto.tcp->remote_ip[0],
 		conn->proto.tcp->remote_ip[1],
 		conn->proto.tcp->remote_ip[2],
@@ -65,7 +60,7 @@ static void ICACHE_FLASH_ATTR recvcb(void *arg, char *pdata, unsigned short len)
 	struct espconn *conn = arg;
 
 	os_printf("http.c:recvb connid=%d ip=%d.%d.%d.%d port=%d len=%d\n",
-		*reserved(conn),
+		*utils_reserved(conn),
 		conn->proto.tcp->remote_ip[0],
 		conn->proto.tcp->remote_ip[1],
 		conn->proto.tcp->remote_ip[2],
@@ -82,7 +77,7 @@ static void ICACHE_FLASH_ATTR reconcb(void *arg, sint8 err)
 	struct espconn *conn = arg;
 
 	os_printf("http.c:reconcb connid=%d ip=%d.%d.%d.%d port=%d status=%d\n",
-		*reserved(conn),
+		*utils_reserved(conn),
 		conn->proto.tcp->remote_ip[0],
 		conn->proto.tcp->remote_ip[1],
 		conn->proto.tcp->remote_ip[2],
