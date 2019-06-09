@@ -20,14 +20,14 @@
  */
 
 // bitmasks for dns_header.flags
-static const uint16_t QR     = 0x8000;
-static const uint16_t OPCODE = 0x7800;
-static const uint16_t AA     = 0x0400;
-static const uint16_t TC     = 0x0200;
-static const uint16_t RD     = 0x0100;
-static const uint16_t RA     = 0x0080;
-static const uint16_t Z      = 0x0070;
-static const uint16_t RCODE  = 0x000f;
+static const uint16_t QR     = 0x0080;
+static const uint16_t OPCODE = 0x0078;
+static const uint16_t AA     = 0x0004;
+static const uint16_t TC     = 0x0002;
+static const uint16_t RD     = 0x0001;
+static const uint16_t RA     = 0x8000;
+static const uint16_t Z      = 0x7000;
+static const uint16_t RCODE  = 0x0f00;
 
 struct dns_header
 {
@@ -37,7 +37,7 @@ struct dns_header
 	uint16_t ancount;
 	uint16_t nscount;
 	uint16_t arcount;
-} __attribute((packed))__;
+} __attribute__((packed));
 
 static bool to_bool(int condition)
 {
@@ -80,24 +80,47 @@ static ICACHE_FLASH_ATTR void recvcb(void *arg, char *pdata, unsigned short len)
 
 	utils_hexdump(pdata, len);
 
+	// (1) analyze header
+
 	const struct dns_header *header = (struct dns_header*) pdata;
 	const uint16 flags = header->flags;
 
-	print_dns_header(header);
-
 	if (flags & QR || flags & OPCODE || flags & TC || flags & RD) {
-		os_printf("dns: unsupported flags: ");
+		os_printf("dns: warn: unsupported flags: ");
 		print_dns_header(header);
 		os_printf("\n");
-		return;
 	}
 
 	if (ntohs(header->qdcount) != 1) {
-		os_printf("dns: unsupported QDCOUNT: ");
+		os_printf("dns: warn: unsupported QDCOUNT: ");
 		print_dns_header(header);
 		os_printf("\n");
-		return;
 	}
+
+	// (2) analyze question
+
+	const size_t question_offset = sizeof(*header);
+	os_printf("off=%d\n", question_offset);
+	const char *question = &pdata[question_offset];
+	int label_count = 0;
+
+	while (*question) {
+		const uint8_t label_len = (const uint8_t) *question;
+		question += 1;
+
+		char buf[label_len + 1];
+		buf[label_len] = 0;
+
+		for (size_t i = 0; i < label_len; ++i) {
+			buf[i] = *question;
+			question += 1;
+		}
+
+		label_count += 1;
+		os_printf("label(%d)=%s\n", label_count, buf);
+	}
+
+	// (?) Send reply
 
 	//espconn_send(conn, (uint8_t*) pdata, len);
 }
