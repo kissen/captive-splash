@@ -17,6 +17,10 @@
 // the ip addr we always use for a reply
 static ip_addr_t dns_reply_with;
 
+// structs for sending out replies
+static esp_udp reply_udp;
+static struct espconn reply_udp_conn;
+
 /*
  * types;
  *
@@ -86,29 +90,34 @@ static ICACHE_FLASH_ATTR void recvcb(void *arg, char *pdata, unsigned short len)
 {
 	struct espconn *conn = arg;
 
-	remot_info *premot = NULL;
-	espconn_get_connection_info(conn, &premot, 0);
+	remot_info *remote = NULL;
+	espconn_get_connection_info(conn, &remote, 0);
 
-	os_printf("dns.c:recvb local_ip=%d.%d.%d.%d local_port=%d remote_ip=%d.%d.%d.%d remote_port=%d len=%d\n",
+	os_printf("dns.c:recvb connid=%04x local_ip=%d.%d.%d.%d local_port=%d remote_ip=%d.%d.%d.%d remote_port=%d len=%d\n",
+		*utils_reserved(conn),
 		conn->proto.udp->local_ip[0],
 		conn->proto.udp->local_ip[1],
 		conn->proto.udp->local_ip[2],
 		conn->proto.udp->local_ip[3],
 		conn->proto.udp->local_port,
-		premot->remote_ip[0],
-		premot->remote_ip[1],
-		premot->remote_ip[2],
-		premot->remote_ip[3],
-		premot->remote_port,
+		remote->remote_ip[0],
+		remote->remote_ip[1],
+		remote->remote_ip[2],
+		remote->remote_ip[3],
+		remote->remote_port,
 		len
 	);
 
+#if DEBUG
 	utils_hexdump(pdata, len);
+#endif
 
 	// (1) analyze header
 
 	const struct dns_header *header = (struct dns_header*) pdata;
+#if DEBUG
 	print_dns_header(header);
+#endif
 
 	// (2) analyze question
 
@@ -167,19 +176,25 @@ static ICACHE_FLASH_ATTR void recvcb(void *arg, char *pdata, unsigned short len)
 	memcpy(&sendbuf[sendoff], &answer, sizeof(answer));
 	sendoff += sizeof(answer);
 
+#if DEBUG
 	utils_hexdump(sendbuf, total_size);
+#endif
+
+	memcpy(&reply_udp.remote_ip, &remote->remote_ip, sizeof(reply_udp.remote_ip));
+	memcpy(&reply_udp.remote_port, &remote->remote_port, sizeof(reply_udp.remote_port));
 
 	int8_t err;
-	if ((err = espconn_send(conn, (uint8_t*) sendbuf, total_size)) != 0) {
+	if ((err = espconn_send(&reply_udp_conn, (uint8_t*) sendbuf, total_size)) != 0) {
 		os_printf("espconn_send failed; err=%d\n", err);
 	};
 }
 
 static ICACHE_FLASH_ATTR void sentcb(void *arg)
 {
-	const struct espconn *conn = arg;
+	struct espconn *conn = arg;
 
-	os_printf("dns.c:sentcb local_ip=%d.%d.%d.%d local_port=%d remote_ip=%d.%d.%d.%d remote_port=%d\n",
+	os_printf("dns.c:sentcb connid=%04x local_ip=%d.%d.%d.%d local_port=%d remote_ip=%d.%d.%d.%d remote_port=%d\n",
+		*utils_reserved(conn),
 		conn->proto.udp->local_ip[0],
 		conn->proto.udp->local_ip[1],
 		conn->proto.udp->local_ip[2],
@@ -202,29 +217,56 @@ bool ICACHE_FLASH_ATTR dns_server_init(ip_addr_t *http_addr)
 {
 	dns_reply_with = *http_addr;
 
-	static esp_udp udp = {
-		.local_port = 53,
-	};
+	// * create the client connection */
 
-	static struct espconn udp_server = {
-		.type = ESPCONN_UDP,
-		.proto.udp = &udp,
-	};
+	reply_udp.local_port = 53;
+	reply_udp_conn.type = ESPCONN_UDP;
+	reply_udp_conn.proto.udp = &reply_udp;
 
-	if (espconn_regist_recvcb(&udp_server, recvcb) != 0) {
+	if (espconn_regist_recvcb(&reply_udp_conn, recvcb) != 0) {
 		error("dns: espcon_register_recvb");
 		return false;
 	}
 
-	if (espconn_regist_sentcb(&udp_server, sentcb) != 0) {
+	if (espconn_regist_sentcb(&reply_udp_conn, sentcb) != 0) {
 		error("dns: espcon_register_sentcb");
 		return false;
 	}
 
-	if (espconn_create(&udp_server) != 0) {
+	if (espconn_create(&reply_udp_conn) != 0) {
 		error("dns: espconn_create");
 		return false;
 	}
+
+	*utils_reserved(&reply_udp_conn) = 0xcccc;
+
+	/* create the server connection */
+
+	static esp_udp server_udp = {
+		.local_port = 53,
+	};
+
+	static struct espconn server_udp_conn = {
+		.type = ESPCONN_UDP,
+		.proto.udp = &server_udp,
+	};
+
+	if (espconn_regist_recvcb(&server_udp_conn, recvcb) != 0) {
+		error("dns: espcon_register_recvb");
+		return false;
+	}
+
+	if (espconn_regist_sentcb(&server_udp_conn, sentcb) != 0) {
+		error("dns: espcon_register_sentcb");
+		return false;
+	}
+
+	if (espconn_create(&server_udp_conn) != 0) {
+		error("dns: espconn_create");
+		return false;
+	}
+
+	*utils_reserved(&server_udp_conn) = 0x5555;
 
 	return true;
 }

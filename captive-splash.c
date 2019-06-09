@@ -106,11 +106,11 @@ void ICACHE_FLASH_ATTR user_init()
 		error("wifi_set_ip_info");
 	}
 
-	// disable built-in (m)dns; it gets in the way with our fake dns
+	// disable built-in (m)dns; it gets in the way with our fake dns(?)
 
-	espconn_mdns_server_unregister();
-	espconn_mdns_close();
-	espconn_mdns_disable();
+	//espconn_mdns_server_unregister();
+	//espconn_mdns_close();
+	//espconn_mdns_disable();
 
 	// configure & enable dhcp
 
