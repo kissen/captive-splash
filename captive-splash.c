@@ -20,6 +20,7 @@ static void ICACHE_FLASH_ATTR timer_callback(void *arg)
 
 static void ICACHE_FLASH_ATTR wifi_event_callback(System_Event_t *se)
 {
+#if DEBUG
 	switch (se->event) {
 	case EVENT_STAMODE_CONNECTED:
 		os_printf("EVENT_STAMODE_CONNECTED\n");
@@ -52,6 +53,7 @@ static void ICACHE_FLASH_ATTR wifi_event_callback(System_Event_t *se)
 		os_printf("EVENT_MAX\n");
 		break;
 	}
+#endif
 }
 
 void ICACHE_FLASH_ATTR user_init()
@@ -103,6 +105,12 @@ void ICACHE_FLASH_ATTR user_init()
 	if (!wifi_set_ip_info(SOFTAP_IF, &ipinf)) {
 		error("wifi_set_ip_info");
 	}
+
+	// disable built-in (m)dns; it gets in the way with our fake dns
+
+	espconn_mdns_server_unregister();
+	espconn_mdns_close();
+	espconn_mdns_disable();
 
 	// configure & enable dhcp
 

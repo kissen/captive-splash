@@ -14,8 +14,7 @@ static ICACHE_FLASH_ATTR void recvcb(void *arg, char *pdata, unsigned short len)
 {
 	struct espconn *conn = arg;
 
-	os_printf("dns.c:recvb connid=%d ip=%d.%d.%d.%d port=%d len=%d\n",
-		*utils_reserved(conn),
+	os_printf("dns.c:recvb ip=%d.%d.%d.%d port=%d len=%d\n",
 		conn->proto.tcp->remote_ip[0],
 		conn->proto.tcp->remote_ip[1],
 		conn->proto.tcp->remote_ip[2],
@@ -33,8 +32,7 @@ static ICACHE_FLASH_ATTR void sentcb(void *arg)
 {
 	struct espconn *conn = arg;
 
-	os_printf("dns.c:sentcb connid=%d ip=%d.%d.%d.%d port=%d\n",
-		*utils_reserved(conn),
+	os_printf("dns.c:sentcb ip=%d.%d.%d.%d port=%d\n",
 		conn->proto.tcp->remote_ip[0],
 		conn->proto.tcp->remote_ip[1],
 		conn->proto.tcp->remote_ip[2],
