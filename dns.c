@@ -27,6 +27,8 @@ static ip_addr_t dns_reply_with;
  */
 
 // bitmasks for dns_header.flags
+// XXX: they are written so they will fit with network byte order
+// -> TODO: unify byte order
 static const uint16_t QR     = 0x0080;
 static const uint16_t OPCODE = 0x0078;
 static const uint16_t AA     = 0x0004;
@@ -56,28 +58,6 @@ struct dns_answer
 	uint32_t rdata;
 } __attribute__((packed));
 
-static bool to_bool(int condition)
-{
-	return condition != 0;
-}
-
-static const uint8_t opcode(const struct dns_header *header)
-{
-	const uint16_t res =  (header->flags & OPCODE) >> 11;
-	return (uint8_t) res;
-}
-
-static void print_dns_header(const struct dns_header *header)
-{
-	const bool qr = to_bool(header->flags & QR);
-	const uint8_t op = opcode(header);
-	const uint8_t tc = to_bool(header->flags & TC);
-	const uint8_t rd = to_bool(header->flags & RD);
-
-	os_printf("dns_header{id=%04x qr=%d op=%d tc=%d rd=%d qdcount=%d}\n",
-		  header->id, qr, op, tc, rd, ntohs(header->qdcount));
-}
-
 /*
  * callbacks
  */
@@ -89,10 +69,9 @@ static ICACHE_FLASH_ATTR void recvcb(void *arg, char *pdata, unsigned short len)
 	remot_info *remote = NULL;
 	espconn_get_connection_info(conn, &remote, 0);
 
-	os_printf("dns.c:recvb connid=%04x local_ip=%d.%d.%d.%d local_port=%d remote_ip=%d.%d.%d.%d remote_port=%d len=%d\n",
-		*utils_reserved(conn),
+	os_printf("dns.c:recvb local_ip=%d.%d.%d.%d local_port=%d remote_ip=%d.%d.%d.%d remote_port=%d len=%d\n",
 		conn->proto.udp->local_ip[0],
-		conn->proto.udp->local_ip[1],
+	       conn->proto.udp->local_ip[1],
 		conn->proto.udp->local_ip[2],
 		conn->proto.udp->local_ip[3],
 		conn->proto.udp->local_port,
@@ -111,9 +90,24 @@ static ICACHE_FLASH_ATTR void recvcb(void *arg, char *pdata, unsigned short len)
 	// (1) analyze header
 
 	const struct dns_header *header = (struct dns_header*) pdata;
-#if DEBUG
-	print_dns_header(header);
-#endif
+
+	/*
+	 * TODO: Fix these cases, then add in the check;
+         * seems like most phone at least want to know a bit more than just A records
+
+	const uint16_t flags = header->flags;
+
+	if (flags & QR || flags & OPCODE || flags & TC || flags) {
+		os_printf("dns: dropping unsupported request with flags=%04x\n", flags);
+		return;
+	}
+
+	if (ntohs(header->qdcount) != 1) {
+		const uint16_t qdcount = ntohs(header->qdcount);
+		os_printf("dns: dropping unsupported request with qdcount=%d\n", qdcount);
+		return;
+	}
+	*/
 
 	// (2) analyze question
 
@@ -150,7 +144,7 @@ static ICACHE_FLASH_ATTR void recvcb(void *arg, char *pdata, unsigned short len)
 		.class = qclass,
 		.ttl = htonl(5 * 60),
 		.rdlength = htons(4),
-		.rdata = dns_reply_with.addr  // XXX: endianess???
+		.rdata = dns_reply_with.addr
 	};
 
 	// (4) send reply
@@ -181,7 +175,7 @@ static ICACHE_FLASH_ATTR void recvcb(void *arg, char *pdata, unsigned short len)
 
 	int8_t err;
 	if ((err = espconn_send(conn, (uint8_t*) sendbuf, total_size)) != 0) {
-		os_printf("espconn_send failed; err=%d\n", err);
+		os_printf("dns: espconn_send failed; err=%d\n", err);
 	};
 }
 
@@ -189,18 +183,20 @@ static ICACHE_FLASH_ATTR void sentcb(void *arg)
 {
 	struct espconn *conn = arg;
 
-	os_printf("dns.c:sentcb connid=%04x local_ip=%d.%d.%d.%d local_port=%d remote_ip=%d.%d.%d.%d remote_port=%d\n",
-		*utils_reserved(conn),
+	remot_info *remote = NULL;
+	espconn_get_connection_info(conn, &remote, 0);
+
+	os_printf("dns.c:sentcb local_ip=%d.%d.%d.%d local_port=%d remote_ip=%d.%d.%d.%d remote_port=%d\n",
 		conn->proto.udp->local_ip[0],
 		conn->proto.udp->local_ip[1],
 		conn->proto.udp->local_ip[2],
 		conn->proto.udp->local_ip[3],
 		conn->proto.udp->local_port,
-		conn->proto.udp->remote_ip[0],
-		conn->proto.udp->remote_ip[1],
-		conn->proto.udp->remote_ip[2],
-		conn->proto.udp->remote_ip[3],
-		conn->proto.udp->remote_port
+		remote->remote_ip[0],
+		remote->remote_ip[1],
+		remote->remote_ip[2],
+		remote->remote_ip[3],
+		remote->remote_port
 	);
 
 }
@@ -236,8 +232,6 @@ bool ICACHE_FLASH_ATTR dns_server_init(ip_addr_t *http_addr)
 		error("dns: espconn_create");
 		return false;
 	}
-
-	*utils_reserved(&server_udp_conn) = 0x5555;
 
 	return true;
 }

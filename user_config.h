@@ -6,4 +6,4 @@
 
 
 // Set DEBUG=1 for more verbose logging
-#define DEBUG 0
+#define DEBUG 1
