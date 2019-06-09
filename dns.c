@@ -11,6 +11,13 @@
 #include <espconn.h>
 
 /*
+ * globals
+ */
+
+// the ip addr we always use for a reply
+static ip_addr_t dns_reply_with;
+
+/*
  * types;
  *
  * ESP8266 is little endian in the way we are using it; let's keep the structs
@@ -37,6 +44,22 @@ struct dns_header
 	uint16_t ancount;
 	uint16_t nscount;
 	uint16_t arcount;
+} __attribute__((packed));
+
+struct dns_question
+{
+	uint16_t qtype;
+	uint16_t qclass;
+} __attribute__((packed));
+
+struct dns_answer
+{
+	uint16_t name;
+	uint16_t type;
+	uint16_t class;
+	uint32_t ttl;
+	uint16_t rdlength;
+	uint32_t rdata;
 } __attribute__((packed));
 
 static bool to_bool(int condition)
@@ -100,7 +123,6 @@ static ICACHE_FLASH_ATTR void recvcb(void *arg, char *pdata, unsigned short len)
 	// (2) analyze question
 
 	const size_t question_offset = sizeof(*header);
-	os_printf("off=%d\n", question_offset);
 	const char *question = &pdata[question_offset];
 	int label_count = 0;
 
@@ -120,9 +142,55 @@ static ICACHE_FLASH_ATTR void recvcb(void *arg, char *pdata, unsigned short len)
 		os_printf("label(%d)=%s\n", label_count, buf);
 	}
 
-	// (?) Send reply
+	// (3) construct reply
 
-	//espconn_send(conn, (uint8_t*) pdata, len);
+	struct dns_header reply_header = {
+		.id = header->id,
+		.flags = QR | AA | RD,
+		.qdcount = header->qdcount,
+		.ancount = htons(1),
+		.nscount = 0,
+		.arcount = 0
+	};
+
+	// XXX: assumes there is exactly one question
+	const size_t question_len = len - sizeof(*header);
+	struct dns_question question_meta;
+	memcpy(&question_meta.qtype, &question[question_len - 4], 2);
+	memcpy(&question_meta.qclass, &question[question_len - 2], 2);
+
+	// TODO: Work with dns_answer
+	struct dns_answer answer = {
+		.name = 0xc00c,
+		.type = question_meta.qtype,
+		.class = question_meta.qclass,
+		.ttl = htonl(5 * 60),
+		.rdlength = 4,
+		.rdata = dns_reply_with.addr
+	};
+
+	// (4) send reply
+
+	static uint8_t sendbuf[256];
+
+	const size_t total_size = sizeof(reply_header) + question_len + sizeof(answer);
+	if (total_size > sizeof(sendbuf)) {
+		os_printf("dns: would have to generate %d bytes, that's too much", total_size);
+		return;
+	}
+
+	size_t sendoff = 0;
+
+	memcpy(&sendbuf[sendoff], &reply_header, sizeof(reply_header));
+	sendoff += sizeof(reply_header);
+
+	memcpy(&sendbuf[sendoff], question, question_len);
+	sendoff += question_len;
+
+	memcpy(&sendbuf[sendoff], &answer, sizeof(answer));
+	sendoff += sizeof(answer);
+
+	espconn_send(conn, (uint8_t*) sendbuf, total_size);
 }
 
 static ICACHE_FLASH_ATTR void sentcb(void *arg)
@@ -142,8 +210,10 @@ static ICACHE_FLASH_ATTR void sentcb(void *arg)
  * public functions
  */
 
-bool ICACHE_FLASH_ATTR dns_server_init(void)
+bool ICACHE_FLASH_ATTR dns_server_init(ip_addr_t *http_addr)
 {
+	dns_reply_with = *http_addr;
+
 	static esp_udp udp = {
 		.local_port = 53,
 	};

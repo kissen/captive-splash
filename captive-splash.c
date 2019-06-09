@@ -141,7 +141,7 @@ void ICACHE_FLASH_ATTR user_init()
 		error("http_server_init");
 	}
 
-	if (!dns_server_init()) {
+	if (!dns_server_init(&ipinf.ip)) {
 		error("dns_server_init");
 	}
 

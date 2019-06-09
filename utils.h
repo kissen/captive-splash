@@ -30,3 +30,14 @@ uint16_t htons(uint16_t host_value);
  * Convert integer i in host byte order to network byte order.
  */
 uint16_t ntohs(uint16_t network_value);
+
+
+/**
+ * Convert integer i in network byte order to host byte order.
+ */
+uint32_t htonl(uint32_t host_value);
+
+/**
+ * Convert integer i in host byte order to network byte order.
+ */
+uint32_t ntohl(uint32_t network_value);

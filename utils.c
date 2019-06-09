@@ -64,17 +64,33 @@ void ICACHE_FLASH_ATTR utils_hexdump(void *buf, size_t buflen)
 	}
 }
 
-static ICACHE_FLASH_ATTR uint16_t swap_bytes(uint16_t i)
+static ICACHE_FLASH_ATTR uint16_t swap_bytes16(uint16_t i)
 {
 	return (i >> 8 & 0xff) | (i << 8);
 }
 
 uint16_t ICACHE_FLASH_ATTR htons(uint16_t i)
 {
-	return swap_bytes(i);
+	return swap_bytes16(i);
 }
 
 uint16_t ICACHE_FLASH_ATTR ntohs(uint16_t i)
 {
-	return swap_bytes(i);
+	return swap_bytes16(i);
+}
+
+static ICACHE_FLASH_ATTR uint32_t swap_bytes32(uint32_t i)
+{
+	return (i >> 24) | ((i & 0xff0000) >> 8) | ((i & 0xff00) << 8) | (i << 24);
+
+}
+
+uint32_t ICACHE_FLASH_ATTR htonl(uint32_t i)
+{
+	return swap_bytes32(i);
+}
+
+uint32_t ICACHE_FLASH_ATTR ntohl(uint32_t i)
+{
+	return swap_bytes32(i);
 }
