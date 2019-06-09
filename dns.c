@@ -17,10 +17,6 @@
 // the ip addr we always use for a reply
 static ip_addr_t dns_reply_with;
 
-// structs for sending out replies
-static esp_udp reply_udp;
-static struct espconn reply_udp_conn;
-
 /*
  * types;
  *
@@ -180,11 +176,11 @@ static ICACHE_FLASH_ATTR void recvcb(void *arg, char *pdata, unsigned short len)
 	utils_hexdump(sendbuf, total_size);
 #endif
 
-	memcpy(&reply_udp.remote_ip, &remote->remote_ip, sizeof(reply_udp.remote_ip));
-	memcpy(&reply_udp.remote_port, &remote->remote_port, sizeof(reply_udp.remote_port));
+	memcpy(&conn->proto.udp->remote_ip, &remote->remote_ip, sizeof(remote->remote_ip));
+	memcpy(&conn->proto.udp->remote_port, &remote->remote_port, sizeof(remote->remote_port));
 
 	int8_t err;
-	if ((err = espconn_send(&reply_udp_conn, (uint8_t*) sendbuf, total_size)) != 0) {
+	if ((err = espconn_send(conn, (uint8_t*) sendbuf, total_size)) != 0) {
 		os_printf("espconn_send failed; err=%d\n", err);
 	};
 }
@@ -216,31 +212,6 @@ static ICACHE_FLASH_ATTR void sentcb(void *arg)
 bool ICACHE_FLASH_ATTR dns_server_init(ip_addr_t *http_addr)
 {
 	dns_reply_with = *http_addr;
-
-	// * create the client connection */
-
-	reply_udp.local_port = 53;
-	reply_udp_conn.type = ESPCONN_UDP;
-	reply_udp_conn.proto.udp = &reply_udp;
-
-	if (espconn_regist_recvcb(&reply_udp_conn, recvcb) != 0) {
-		error("dns: espcon_register_recvb");
-		return false;
-	}
-
-	if (espconn_regist_sentcb(&reply_udp_conn, sentcb) != 0) {
-		error("dns: espcon_register_sentcb");
-		return false;
-	}
-
-	if (espconn_create(&reply_udp_conn) != 0) {
-		error("dns: espconn_create");
-		return false;
-	}
-
-	*utils_reserved(&reply_udp_conn) = 0xcccc;
-
-	/* create the server connection */
 
 	static esp_udp server_udp = {
 		.local_port = 53,
