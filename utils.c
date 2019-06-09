@@ -27,8 +27,11 @@ static void ICACHE_FLASH_ATTR hexdump_str(const unsigned char *str, size_t off, 
 void ICACHE_FLASH_ATTR utils_hexdump(void *buf, size_t buflen)
 {
 	const uint8_t *data = buf;
+	bool printed_newline = false;
 
 	for (size_t i = 0; i < buflen; ++i) {
+		printed_newline = false;
+
 		// we print rows of 8 bytes each
 		const size_t col = i % 8;
 
@@ -48,6 +51,7 @@ void ICACHE_FLASH_ATTR utils_hexdump(void *buf, size_t buflen)
 			os_printf("    |");
 			hexdump_str(data, i - 7, 8);
 			os_printf("|\n");
+			printed_newline = true;
 			break;
 		}
 		default:
@@ -55,5 +59,7 @@ void ICACHE_FLASH_ATTR utils_hexdump(void *buf, size_t buflen)
 		}
 	}
 
-	os_printf("\n");
+	if (!printed_newline) {
+		os_printf("\n");
+	}
 }
