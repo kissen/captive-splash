@@ -64,6 +64,61 @@ void ICACHE_FLASH_ATTR utils_hexdump(void *buf, size_t buflen)
 	}
 }
 
+// Return wheter `set' contains `elem'
+static ICACHE_FLASH_ATTR bool contains(const char *set, const char elem)
+{
+	for (const char *ptr = set; *ptr; ++ptr) {
+		if (*ptr == elem) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
+char ICACHE_FLASH_ATTR *utils_tok(char *str, size_t len, const char *delim)
+{
+	static char *current;
+	static size_t current_index;  // where we are in `current'
+	static size_t current_len;  // *original* len of `current'
+
+	if (str != NULL) {
+		current = str;
+		current_index = 0;
+		current_len = len;
+	}
+
+	char * const res = current;
+	bool found_token = false;
+
+	// look for the end of the current token
+	while (current_index < current_len && *current) {
+		if (contains(delim, *current)) {
+			found_token = true;
+			*current = 0;
+			current += 1;
+			current_index += 1;
+			break;
+		}
+
+		current += 1;
+		current_index += 1;
+	}
+
+	// collect remaining delimiters
+	while (found_token && current_index < current_len && *current) {
+		if (!contains(delim, *current)) {
+			break;
+		}
+
+		*current = 0;
+		current += 1;
+		current_index += 1;
+	}
+
+	return found_token ? res : NULL;
+}
+
 static ICACHE_FLASH_ATTR uint16_t swap_bytes16(uint16_t i)
 {
 	return (i >> 8 & 0xff) | (i << 8);

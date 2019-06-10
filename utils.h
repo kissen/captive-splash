@@ -21,6 +21,21 @@ uint16_t *utils_reserved(struct espconn *conn);
  */
 void utils_hexdump(void *buf, size_t buflen);
 
+/*
+ * Like strtok(3), except `str' is limited to `len' bytes, i.e. it
+ * does not have to be zero-terminated.
+ *
+ * On first call, set `str' to the string you wish to tokenize,
+ * on calls afterwards set `str' to NULL. `len' is only evaluated
+ * if `str != NULL'.
+ *
+ * The functions returns the token as zero-terminated string or NULL
+ * if no more tokens were found. Note: If the last character of of
+ * `str' is not in `delim' and not zero, the last token will not be
+ * returned.
+ */
+char *utils_tok(char *str, size_t len, const char *delim);
+
 /**
  * Convert integer i in network byte order to host byte order.
  */

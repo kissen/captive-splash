@@ -73,6 +73,30 @@ static void ICACHE_FLASH_ATTR recvcb(void *arg, char *pdata, unsigned short len)
 #if DEBUG
 	utils_hexdump(pdata, len);
 #endif
+
+	// (1) look for the GET
+
+	const char *method, *path;
+
+	for (char *line = utils_tok(pdata, len, "\r\n");
+	     line;
+	     line = utils_tok(NULL, 0, "\r\n"))
+	{
+		os_printf("LINE: \"%s\"\n", line);
+
+		method = strtok(line, " \r\n");
+		if (!method || strcmp(method, "GET") != 0) {
+			continue;
+		}
+
+		path = strtok(NULL, " \r\n");
+		if (!path) {
+			continue;
+		}
+
+		os_printf("method=%s\n", method);
+		os_printf("path=%s\n", path);
+	}
 }
 
 static void ICACHE_FLASH_ATTR sentcb(void *arg)
