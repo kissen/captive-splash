@@ -10,8 +10,15 @@ captive-splash-0x00000.bin: captive-splash
 
 captive-splash: $(OBJS)
 
+http.o: payload.h
+
+payload.h: payload.html
+	./bintohead.py payload.html PAYLOAD > payload.h
+
 flash: captive-splash-0x00000.bin
 	esptool.py write_flash 0 captive-splash-0x00000.bin 0x10000 captive-splash-0x10000.bin
 
 clean:
-	rm -f captive-splash captive-splash-0x00000.bin captive-splash-0x10000.bin $(OBJS)
+	rm -f captive-splash captive-splash-0x00000.bin captive-splash-0x10000.bin $(OBJS) payload.c
+
+.PHONY: flash clean

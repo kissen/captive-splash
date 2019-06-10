@@ -1,6 +1,7 @@
 #include "error.h"
-#include "utils.h"
 #include "http.h"
+#include "payload.h"
+#include "utils.h"
 
 #include <ets_sys.h>
 #include <gpio.h>
@@ -56,6 +57,14 @@ static void ICACHE_FLASH_ATTR reconcb(void *arg, sint8 err)
 	);
 }
 
+static void ICACHE_FLASH_ATTR serve_redirect(struct espconn *conn)
+{
+}
+
+static void ICACHE_FLASH_ATTR serve_html(struct espconn *conn)
+{
+}
+
 static void ICACHE_FLASH_ATTR recvcb(void *arg, char *pdata, unsigned short len)
 {
 	struct espconn *conn = arg;
@@ -76,7 +85,8 @@ static void ICACHE_FLASH_ATTR recvcb(void *arg, char *pdata, unsigned short len)
 
 	// (1) look for the GET
 
-	const char *method, *path;
+	const char *method = NULL;
+	const char *path = NULL;
 
 	for (char *line = utils_tok(pdata, len, "\r\n");
 	     line;
@@ -96,6 +106,19 @@ static void ICACHE_FLASH_ATTR recvcb(void *arg, char *pdata, unsigned short len)
 
 		os_printf("method=%s\n", method);
 		os_printf("path=%s\n", path);
+	}
+
+	// (2) reply
+
+	if (!method || !path) {
+		// dunno what to do
+		return;
+	}
+
+	if (!strcmp(path, "/login-portal")) {
+		serve_html(conn);
+	} else {
+		serve_redirect(conn);
 	}
 }
 
