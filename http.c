@@ -60,11 +60,28 @@ static void ICACHE_FLASH_ATTR reconcb(void *arg, sint8 err)
 		conn->proto.tcp->remote_port,
 		err
 	);
+
+	conq_unregister(conn);
 }
 
 static void ICACHE_FLASH_ATTR serve_redirect(struct espconn *conn)
 {
 	os_printf("serve_redirect(connid=%d)\n", *utils_reserved(conn));
+
+	static char redirect[] =
+		"HTTP/1.1 307 Temporary Redirect\r\n"
+		"Content-Length: 0\r\n"
+		"Connection: close\r\n"
+		"Location: /login-portal\r\n"
+		"\r\n";
+
+	static struct conq_part part = {
+		.buf = redirect,
+		.buflen = sizeof(redirect) - 1
+	};
+
+	conq_register(conn, &part, 1);
+	conq_start(conn);
 }
 
 // TODO: find header
