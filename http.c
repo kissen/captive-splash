@@ -59,10 +59,31 @@ static void ICACHE_FLASH_ATTR reconcb(void *arg, sint8 err)
 
 static void ICACHE_FLASH_ATTR serve_redirect(struct espconn *conn)
 {
+	os_printf("serve_redirect(connid=%d)\n", *utils_reserved(conn));
 }
+
+// TODO: find header
+int ets_snprintf(unsigned char *str, size_t size, const char *format, ...);
 
 static void ICACHE_FLASH_ATTR serve_html(struct espconn *conn)
 {
+	os_printf("serve_html(connid=%d)\n", *utils_reserved(conn));
+
+	static unsigned char status[] = "HTTP/1.1 200 OK\r\n";
+	espconn_send(conn, status, sizeof(status) - 1);
+	os_printf("waiting...\n");
+
+	static unsigned char content_length[32];
+	ets_snprintf(content_length, sizeof(content_length), "Content-Length: %d\r\n", sizeof(PAYLOAD));
+	espconn_send(conn, content_length, strlen((const char *) content_length));
+	os_printf("waiting...\n");
+
+	static unsigned char seperator[] = "\r\n";
+	espconn_send(conn, seperator, sizeof(seperator) - 1);
+	os_printf("waiting...\n");
+
+	espconn_send(conn, PAYLOAD, sizeof(PAYLOAD));
+	os_printf("waiting...\n");
 }
 
 static void ICACHE_FLASH_ATTR recvcb(void *arg, char *pdata, unsigned short len)

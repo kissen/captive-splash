@@ -26,7 +26,7 @@ class Binary:
             print()
             print('/*\n * generated with bintohead.py from file\n * %s\n */' % self.file_path)
             print()
-            print('static const char %s[] = {' % self.object_name)
+            print('static unsigned char %s[] = {' % self.object_name)
 
             first = True
             col = 0
