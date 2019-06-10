@@ -102,10 +102,10 @@ static void ICACHE_FLASH_ATTR serve_html(struct espconn *conn)
 	static unsigned char content_len[32];
 	ets_snprintf(content_len, sizeof(content_len), "Content-Length: %d\r\n", sizeof(PAYLOAD));
 	parts[2].buf = content_len;
-	parts[2].buflen = strlen(parts[1].buf);
+	parts[2].buflen = strlen(parts[2].buf);
 
 	parts[3].buf = "\r\n";
-	parts[3].buflen = strlen(parts[2].buf);
+	parts[3].buflen = strlen(parts[3].buf);
 
 	parts[4].buf = PAYLOAD;
 	parts[4].buflen = sizeof(PAYLOAD);

@@ -34,7 +34,7 @@ void ICACHE_FLASH_ATTR user_init()
 
 	struct softap_config ap_config = {
 		.ssid = USER_CONFIG_SSID,
-		.password = USER_CONFIG_PASSWORD,
+		.password = "N/A",
 		.ssid_len = 0,
 		.channel = 0,
 		.authmode = AUTH_OPEN,

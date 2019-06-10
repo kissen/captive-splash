@@ -1,4 +1,5 @@
 #include "conq.h"
+#include "error.h"
 
 #include <ets_sys.h>
 #include <gpio.h>
@@ -34,13 +35,41 @@ void ICACHE_FLASH_ATTR conq_unregister(struct espconn *conn)
 	}
 }
 
-static void ICACHE_FLASH_ATTR send_next(struct espconn *conn)
+static void ICACHE_FLASH_ATTR disconnect_task(os_event_t *e)
 {
-	if (conn == NULL || conn != current.conn) {
+	if (current.conn == NULL) {
 		return;
 	}
 
-	if (current.current_part >= current.part_len) {
+	struct espconn *conn = current.conn;
+	current.conn = NULL;
+
+	espconn_disconnect(conn);
+}
+
+static void ICACHE_FLASH_ATTR disconnect(struct espconn *conn)
+{
+	static os_event_t queue[5];
+	if (!system_os_task(disconnect_task, 2, queue, 5)) {
+		error("system_os_task");
+	}
+
+	system_os_post(2, 0, 'a');
+}
+
+static ICACHE_FLASH_ATTR void ICACHE_FLASH_ATTR send_next(struct espconn *conn)
+{
+	if (conn == NULL || current.conn == NULL) {
+		return;
+	}
+
+	if (current.current_part == current.part_len) {
+		disconnect(conn);
+		return;
+	}
+
+	if (current.current_part > current.part_len) {
+		// should not happen?
 		return;
 	}
 
