@@ -91,23 +91,26 @@ static void ICACHE_FLASH_ATTR serve_html(struct espconn *conn)
 {
 	os_printf("serve_html(connid=%d)\n", *utils_reserved(conn));
 
-	static struct conq_part parts[4];
+	static struct conq_part parts[5];
 
 	parts[0].buf = "HTTP/1.1 200 OK\r\n";
 	parts[0].buflen = strlen(parts[0].buf);
 
-	static unsigned char content_len[32];
-	ets_snprintf(content_len, sizeof(content_len), "Content-Length: %d\r\n", sizeof(PAYLOAD));
-	parts[1].buf = content_len;
+	parts[1].buf = "Connection: close\r\n";
 	parts[1].buflen = strlen(parts[1].buf);
 
-	parts[2].buf = "\r\n";
-	parts[2].buflen = strlen(parts[2].buf);
+	static unsigned char content_len[32];
+	ets_snprintf(content_len, sizeof(content_len), "Content-Length: %d\r\n", sizeof(PAYLOAD));
+	parts[2].buf = content_len;
+	parts[2].buflen = strlen(parts[1].buf);
 
-	parts[3].buf = PAYLOAD;
-	parts[3].buflen = sizeof(PAYLOAD);
+	parts[3].buf = "\r\n";
+	parts[3].buflen = strlen(parts[2].buf);
 
-	conq_register(conn, parts, 4);
+	parts[4].buf = PAYLOAD;
+	parts[4].buflen = sizeof(PAYLOAD);
+
+	conq_register(conn, parts, 5);
 	conq_start(conn);
 }
 
@@ -138,8 +141,6 @@ static void ICACHE_FLASH_ATTR recvcb(void *arg, char *pdata, unsigned short len)
 	     line;
 	     line = utils_tok(NULL, 0, "\r\n"))
 	{
-		os_printf("LINE: \"%s\"\n", line);
-
 		method = strtok(line, " \r\n");
 		if (!method || strcmp(method, "GET") != 0) {
 			continue;
