@@ -1,4 +1,4 @@
 *.bin
 *.o
 captive-splash
-payload.c
+payload.h
