@@ -24,7 +24,7 @@ Building and Running
 
 * Install the [esptool](https://github.com/espressif/esptool).
 
-* Update `payload.html` and `user_config.html` to your liking.
+* Update `payload.html` and `user_config.h` to your liking.
 
 * With the ESP8266 connected in programming mode, run `make flash`.
 
