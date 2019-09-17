@@ -27,8 +27,6 @@ static void ICACHE_FLASH_ATTR connectcb(void *arg)
 		conn->proto.tcp->remote_ip[3],
 		conn->proto.tcp->remote_port
 	);
-
-	conq_unregister(conn);
 }
 
 static void ICACHE_FLASH_ATTR disconcb(void *arg)
@@ -44,7 +42,7 @@ static void ICACHE_FLASH_ATTR disconcb(void *arg)
 		conn->proto.tcp->remote_port
 	);
 
-	conq_unregister(conn);
+	conq_stop_and_free(conn);
 }
 
 static void ICACHE_FLASH_ATTR reconcb(void *arg, sint8 err)
@@ -61,12 +59,22 @@ static void ICACHE_FLASH_ATTR reconcb(void *arg, sint8 err)
 		err
 	);
 
-	conq_unregister(conn);
+	conq_stop_and_free(conn);
 }
 
 static void ICACHE_FLASH_ATTR serve_redirect(struct espconn *conn)
 {
 	os_printf("serve_redirect(connid=%d)\n", *utils_reserved(conn));
+
+	// create the queue
+
+	struct conq_queue *queue;
+
+	if ((queue = conq_create(conn)) == NULL) {
+		os_printf("serve_redirect: could not allocate conq_queue");
+	}
+
+	// register parts
 
 	static char redirect[] =
 		"HTTP/1.1 307 Temporary Redirect\r\n"
@@ -75,12 +83,10 @@ static void ICACHE_FLASH_ATTR serve_redirect(struct espconn *conn)
 		"Location: /login-portal\r\n"
 		"\r\n";
 
-	static struct conq_part part = {
-		.buf = redirect,
-		.buflen = sizeof(redirect) - 1
-	};
+	conq_register(queue, redirect, sizeof(redirect) - 1);
 
-	conq_register(conn, &part, 1);
+	// start transmission
+
 	conq_start(conn);
 }
 
@@ -91,26 +97,39 @@ static void ICACHE_FLASH_ATTR serve_html(struct espconn *conn)
 {
 	os_printf("serve_html(connid=%d)\n", *utils_reserved(conn));
 
-	static struct conq_part parts[5];
+	// create the queue
 
-	parts[0].buf = "HTTP/1.1 200 OK\r\n";
-	parts[0].buflen = strlen(parts[0].buf);
+	struct conq_queue *queue;
 
-	parts[1].buf = "Connection: close\r\n";
-	parts[1].buflen = strlen(parts[1].buf);
+	if ((queue = conq_create(conn)) == NULL) {
+		os_printf("serve_redirect: could not allocate conq_queue");
+	}
 
-	static unsigned char content_len[32];
-	ets_snprintf(content_len, sizeof(content_len), "Content-Length: %d\r\n", sizeof(PAYLOAD));
-	parts[2].buf = content_len;
-	parts[2].buflen = strlen(parts[2].buf);
+	// prepare parts
 
-	parts[3].buf = "\r\n";
-	parts[3].buflen = strlen(parts[3].buf);
+	static char *parts[5];
 
-	parts[4].buf = PAYLOAD;
-	parts[4].buflen = sizeof(PAYLOAD);
+	parts[0] = "HTTP/1.1 200 OK\r\n";
+	parts[1] = "Connection: close\r\n";
 
-	conq_register(conn, parts, 5);
+	static unsigned char vbuf[32];
+	ets_snprintf(vbuf, sizeof(vbuf), "Content-Length: %d\r\n", sizeof(PAYLOAD));
+	parts[2] = (char *) vbuf;
+
+	parts[3] = "\r\n";
+	parts[4] = (char *) PAYLOAD;
+
+	// register parts
+
+	for (size_t i = 0; i < 5; ++i) {
+		char *buf = parts[i];
+		const size_t len = strlen(buf);
+
+		conq_register(queue, buf, len);
+	}
+
+	// start transmission
+
 	conq_start(conn);
 }
 
