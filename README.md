@@ -27,10 +27,3 @@ Building and Running
 * Update `payload.html` and `user_config.h` to your liking.
 
 * With the ESP8266 connected in programming mode, run `make flash`.
-
-License
--------
-
-I would like this to be GPL, but for now I'm confused about if that's
-possible when linking to the proprietary SDK. So for now, I'm not
-making definite statement about the license.
